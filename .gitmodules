@@ -10,3 +10,6 @@
 [submodule "discovery-server"]
 	path = discovery-server
 	url = git@github.com:mhmmdnaufall/discovery-server.git
+[submodule "api-gateway"]
+	path = api-gateway
+	url = git@github.com:mhmmdnaufall/api-gateway.git
