@@ -13,3 +13,6 @@
 [submodule "api-gateway"]
 	path = api-gateway
 	url = git@github.com:mhmmdnaufall/api-gateway.git
+[submodule "notification-service"]
+	path = notification-service
+	url = git@github.com:mhmmdnaufall/notification-service.git
