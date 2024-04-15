@@ -1,4 +1,51 @@
 services:
+
+  ## MySQL Docker Compose Config
+  mysql-order-service:
+    container_name: mysql-order-service
+    image: mysql:8.3.0
+    environment:
+      MYSQL_DATABASE: order_service
+      MYSQL_ROOT_PASSWORD: root
+    restart: unless-stopped
+
+  mysql-inventory-service:
+    container_name: mysql-inventory-service
+    image: mysql:8.3.0
+    environment:
+      MYSQL_DATABASE: inventory_service
+      MYSQL_ROOT_PASSWORD: root
+    restart: unless-stopped
+
+    ## Mongo Docker Compose Config
+  mongo-product-service:
+    container_name: mongo-product-service
+    image: mongo:7.0.8
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    expose:
+      - "27017"
+
+  keycloak-microservice:
+    container_name: keycloak-microservice
+    image: quay.io/keycloak/keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: start-dev
+
+  zipkin-microservice:
+    image: openzipkin/zipkin
+    container_name: zipkin-microservice
+    ports:
+      - "9411:9411"
+
   kafka:
     container_name: kafka
     image: 'bitnami/kafka:latest'
@@ -12,3 +59,78 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+  ## Eureka Server
+  discovery-server:
+    image: mhmmdnaufal/microservice-discovery-server:latest
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - zipkin-microservice
+
+  api-gateway:
+    image: mhmmdnaufal/microservice-api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "8181:8080"
+    expose:
+      - "8181"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - zipkin-microservice
+      - keycloak-microservice
+      - discovery-server
+
+  ## Product-Service Docker Compose Config
+  product-service:
+    container_name: product-service
+    image: mhmmdnaufal/microservice-product-service:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATA_MONGODB_URI: mongodb://root:root@mongo-product-service:27017/product_service?authSource=admin
+    depends_on:
+      - mongo-product-service
+      - discovery-server
+      - api-gateway
+
+  ## Order-Service Docker Compose Config
+  order-service:
+    container_name: order-service
+    image: mhmmdnaufal/microservice-order-service:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-order-service:3306/order_service
+    depends_on:
+      - mysql-order-service
+      - kafka
+      - zipkin-microservice
+      - discovery-server
+      - api-gateway
+
+  ## Inventory-Service Docker Compose Config
+  inventory-service:
+    container_name: inventory-service
+    image: mhmmdnaufal/microservice-inventory-service:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-inventory-service:3306/inventory_service
+    depends_on:
+      - mysql-inventory-service
+      - discovery-server
+      - api-gateway
+
+  ## Notification-Service Docker Compose Config
+  notification-service:
+    container_name: notification-service
+    image: mhmmdnaufal/microservice-notification-service:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - zipkin-microservice
+      - kafka
+      - discovery-server
+      - api-gateway
